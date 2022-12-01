@@ -10,10 +10,50 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Log {
-  id          Int       @id @default(autoincrement())
-  status      Int
-  message     String?
-  stacktrace  String
-  createdAt   DateTime  @default(now())
+model User {
+  id               String             @id @default(cuid())
+  username         String
+  password         String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  ConversationUser ConversationUser[]
+  Message          Message[]
+}
+
+model Conversation {
+  id               String             @id @default(cuid())
+  name             String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  ConversationUser ConversationUser[]
+}
+
+model ConversationUser {
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id])
+  conversationId String
+  conversation   Conversation         @relation(fields: [conversationId], references: [id])
+  roleId         String
+  role           ConversationUserRole @relation(fields: [roleId], references: [id])
+  deleted        Boolean              @default(false)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime
+
+  @@id([userId, conversationId])
+}
+
+model ConversationUserRole {
+  id               String             @id @default(cuid())
+  name             String
+  ConversationUser ConversationUser[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  text      String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
 }

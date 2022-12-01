@@ -12,24 +12,68 @@ const startServer = async () => {
     scalar Date
     scalar DateTime
 
-    type Query {
-      logs: [Log]
+    type Mutation {
+      CreateUser($username: String!, $password: String!, $passwordVerify: String!) {
+        createUser($username, $password, $passwordVerify)
+      }
     }
 
-    type Log {
+    type Query {
+      conversations: [Conversation]
+    }
+
+    type User {
       id: ID!
-      status: Int
-      message: String
-      stacktrace: String
+      username: String!
+      password: String
       createdAt: Date!
+      updatedAt: Date!
+    }
+
+    type Conversation {
+      id: ID!
+      name: Int
+      users: [ConversationUser!]!
+      createdAt: Date!
+      updatedAt: Date!
+    }
+
+    type ConversationUser {
+      user: User!
+      role: ConversationUserRole!
+      deleted: Boolean
+      createdAt: Date!
+      updatedAt: Date!
+    }
+
+    type ConversationUserRole {
+      id: ID!
+      name: String
     }
   `;
 
   const resolvers = {
-    Query: {
-      logs: () => {
-        return prisma.log.findMany()
+    Mutation: {
+      createPost(username: string, password: string, passwordVerify: string) {
+
       }
+    },
+    Query: {
+      conversations: (userId: string) => {
+        return prisma.conversationUser.findMany({
+          where: { userId },
+          include: {
+            conversation: true,
+            user: true,
+            role: true,
+          },
+        });
+      },
+      // conversationById: (conversationId: string) => {
+      //   return prisma.conversation.findUnique({
+      //     where: { id: conversationId }
+      //   });
+      // },
     },
   };
   
