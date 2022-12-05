@@ -15,7 +15,7 @@ model User {
   username         String
   password         String
   createdAt        DateTime           @default(now())
-  updatedAt        DateTime
+  updatedAt        DateTime?
   ConversationUser ConversationUser[]
   Message          Message[]
 }
@@ -24,7 +24,7 @@ model Conversation {
   id               String             @id @default(cuid())
   name             String
   createdAt        DateTime           @default(now())
-  updatedAt        DateTime
+  updatedAt        DateTime?
   ConversationUser ConversationUser[]
 }
 
@@ -37,13 +37,13 @@ model ConversationUser {
   role           ConversationUserRole @relation(fields: [roleId], references: [id])
   deleted        Boolean              @default(false)
   createdAt      DateTime             @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime?
 
   @@id([userId, conversationId])
 }
 
 model ConversationUserRole {
-  id               String             @id @default(cuid())
+  id               String             @id 
   name             String
   ConversationUser ConversationUser[]
 }
@@ -55,5 +55,5 @@ model Message {
   author    User     @relation(fields: [authorId], references: [id])
   deleted   Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime?
 }
