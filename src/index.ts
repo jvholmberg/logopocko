@@ -98,11 +98,11 @@ const startServer = async () => {
         // Create user
         return prisma.conversation.create({
           include: {
-            ConversationUser: true,
+            conversationUsers: true,
           },
           data: {
             name,
-            ConversationUser: {
+            conversationUsers: {
               createMany: {
                 data: [
                   { userId: authorId, roleId: 'ADMIN' },

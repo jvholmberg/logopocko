@@ -11,33 +11,34 @@ datasource db {
 }
 
 model User {
-  id               String             @id @default(cuid())
-  username         String
-  password         String
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime?
-  ConversationUser ConversationUser[]
-  Message          Message[]
+  id                String             @id @default(cuid())
+  username          String
+  password          String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime?
+  conversationUsers ConversationUser[]
+  messages          Message[]
 }
 
 model Conversation {
-  id               String             @id @default(cuid())
-  name             String
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime?
-  ConversationUser ConversationUser[]
+  id                String             @id @default(cuid())
+  name              String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime?
+  conversationUsers ConversationUser[]
+  messages          Message[]
 }
 
 model ConversationUser {
-  userId         String
-  user           User                 @relation(fields: [userId], references: [id])
-  conversationId String
-  conversation   Conversation         @relation(fields: [conversationId], references: [id])
-  roleId         String
-  role           ConversationUserRole @relation(fields: [roleId], references: [id])
-  deleted        Boolean              @default(false)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime?
+  userId            String
+  user              User                    @relation(fields: [userId], references: [id])
+  conversationId    String    
+  conversation      Conversation            @relation(fields: [conversationId], references: [id])
+  roleId            String    
+  role              ConversationUserRole    @relation(fields: [roleId], references: [id])
+  deleted           Boolean                 @default(false)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime?
 
   @@id([userId, conversationId])
 }
@@ -51,6 +52,8 @@ model ConversationUserRole {
 model Message {
   id        String   @id @default(cuid())
   text      String
+  conversationId String
+  conversation   Conversation         @relation(fields: [conversationId], references: [id])
   authorId  String
   author    User     @relation(fields: [authorId], references: [id])
   deleted   Boolean  @default(false)
