@@ -28,7 +28,9 @@ const startServer = async () => {
     }
 
     type Query {
+      users: [User]
       conversations: [Conversation]
+      conversationsByUserId(userId: String!): [Conversation]
     }
 
     type User {
@@ -115,7 +117,13 @@ const startServer = async () => {
       },
     },
     Query: {
-      conversations: (userId: string) => {
+      users: () => {
+        return prisma.user.findMany();
+      },
+      conversations: () => {
+        return prisma.conversation.findMany();
+      },
+      conversationsByUserId: (userId: string) => {
         return prisma.conversationUser.findMany({
           where: { userId },
           include: {
