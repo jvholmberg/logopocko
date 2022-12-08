@@ -30,6 +30,7 @@ const startServer = async () => {
     type Query {
       users: [User]
       conversations: [Conversation]
+      conversationById(conversationId: String!): Conversation
       conversationsByUserId(userId: String!): [Conversation]
     }
 
@@ -43,7 +44,7 @@ const startServer = async () => {
 
     type Conversation {
       id: ID!
-      name: Int
+      name: String
       users: [ConversationUser!]!
       createdAt: Date!
       updatedAt: Date
@@ -123,6 +124,11 @@ const startServer = async () => {
       conversations: () => {
         return prisma.conversation.findMany();
       },
+      conversationById: (conversationId: string) => {
+        return prisma.conversation.findFirst({
+          where: { id: conversationId }
+        });
+      },
       conversationsByUserId: (userId: string) => {
         return prisma.conversationUser.findMany({
           where: { userId },
@@ -133,11 +139,6 @@ const startServer = async () => {
           },
         });
       },
-      // conversationById: (conversationId: string) => {
-      //   return prisma.conversation.findUnique({
-      //     where: { id: conversationId }
-      //   });
-      // },
     },
   };
   
