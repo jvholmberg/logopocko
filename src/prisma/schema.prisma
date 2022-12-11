@@ -10,6 +10,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model RefreshToken {
+  id                String          @id @default(cuid())
+  userId            String
+  token             String
+  createdAt         DateTime        @default(now())
+  createdByIp       String
+  expiresAt         DateTime
+  replacedByToken   String
+  revokedAt         DateTime
+  revokedByIp       String
+  reasonRevoked     String
+}
 model User {
   id                String             @id @default(cuid())
   username          String
@@ -52,13 +64,13 @@ model ConversationUserRole {
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  text      String
-  conversationId String
-  conversation   Conversation         @relation(fields: [conversationId], references: [id])
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  deleted   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime?
+  id                String          @id @default(cuid())
+  text              String
+  conversationId    String
+  conversation      Conversation    @relation(fields: [conversationId], references: [id])
+  authorId          String
+  author            User            @relation(fields: [authorId], references: [id])
+  deleted           Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime?
 }
