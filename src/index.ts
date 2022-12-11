@@ -25,6 +25,7 @@ const startServer = async () => {
     type Mutation {
       createUser(username: String!, password: String!, passwordVerify: String!): User
       createConversation(name: String!, authorId: String!, memberIds: [String!]!): Conversation
+      createMessage(conversationId: String!, authorId: String!, text: String!): Message
     }
 
     type Query {
@@ -38,6 +39,7 @@ const startServer = async () => {
       id: ID!
       username: String!
       password: String
+      deleted: Boolean
       createdAt: Date!
       updatedAt: Date
     }
@@ -46,6 +48,17 @@ const startServer = async () => {
       id: ID!
       name: String
       users: [ConversationUser!]!
+      deleted: Boolean
+      createdAt: Date!
+      updatedAt: Date
+    }
+
+    type Message {
+      id: ID!
+      conversationId: String
+      authorId: String
+      text: String
+      deleted: Boolean
       createdAt: Date!
       updatedAt: Date
     }
@@ -95,9 +108,6 @@ const startServer = async () => {
       ) => {
         const { name, authorId, memberIds } = args;
 
-        console.log(args);
-        
-        
         // Create user
         return prisma.conversation.create({
           include: {
@@ -113,6 +123,23 @@ const startServer = async () => {
                 ],
               }
             }
+          }
+        });
+      },
+      createMessage: async (
+        obj: any,
+        args: { conversationId: string, authorId: string, text: string },
+        context: any,
+        info: any,
+      ) => {
+        const { conversationId, authorId, text } = args;
+
+        // Create user
+        return prisma.message.create({
+          data: {
+            conversationId,
+            authorId,
+            text,
           }
         });
       },

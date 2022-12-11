@@ -14,19 +14,21 @@ model User {
   id                String             @id @default(cuid())
   username          String
   password          String
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime?
   conversationUsers ConversationUser[]
   messages          Message[]
+  deleted           Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime?
 }
 
 model Conversation {
   id                String             @id @default(cuid())
   name              String
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime?
   conversationUsers ConversationUser[]
   messages          Message[]
+  deleted           Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime?
 }
 
 model ConversationUser {
