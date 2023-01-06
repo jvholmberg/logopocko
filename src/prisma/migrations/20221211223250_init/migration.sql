@@ -84,3 +84,10 @@ ALTER TABLE `Message` ADD CONSTRAINT `Message_conversationId_fkey` FOREIGN KEY (
 
 -- AddForeignKey
 ALTER TABLE `Message` ADD CONSTRAINT `Message_authorId_fkey` FOREIGN KEY (`authorId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+INSERT INTO `ConversationUserRole` (id, name)
+VALUES 
+('SUPERUSER', 'Superuser'),
+('ADMIN', 'Admin'),
+('MODERATOR', 'Moderator'),
+('MEMBER', 'Member');

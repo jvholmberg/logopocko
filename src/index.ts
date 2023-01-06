@@ -1,15 +1,18 @@
 import prisma from "./prisma/client";
 import { createServer } from "http";
-import cors from 'cors';
-import { json } from 'body-parser';
+import cors from "cors";
+import { json } from "body-parser";
 import express from "express";
-import { ApolloServer } from '@apollo/server';
+import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
-import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
-import gql from 'graphql-tag';
+import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
+import gql from "graphql-tag";
+import { GraphQLError } from "graphql";
+import { User } from "@prisma/client";
+import jsonwebtoken from "jsonwebtoken";
 
 interface MyContext {
-  token?: String;
+  user?: User;
 }
 
 const startServer = async () => {
@@ -17,14 +20,19 @@ const startServer = async () => {
   const httpServer = createServer(app)
 
   const port = process.env.PORT || 4000;
-  const path = process.env.GQL_PATH || '/graphql';
+  const path = process.env.GQL_PATH || "/graphql";
+  
+  const secret = process.env.JWT_SECRET || "SECRET";
+  const accessTokenExpiresIn = process.env.ACCESS_TOKEN_EXPIRATION_TIME || "1m";
+  const refreshTokenExpiresIn = process.env.REFRESH_TOKEN_EXPIRATION_TIME || "2m";
 
   const typeDefs = gql`
     scalar Date
 
     type Mutation {
-      createUser(username: String!, password: String!, passwordVerify: String!): User
-      createConversation(name: String!, authorId: String!, memberIds: [String!]!): Conversation
+      registerUser(username: String!, password: String!, passwordVerify: String!): User
+      loginUser(username: String!, password: String!): String
+      createConversation(name: String!, memberIds: [String!]!): Conversation
       createMessage(conversationId: String!, authorId: String!, text: String!): Message
     }
 
@@ -33,6 +41,19 @@ const startServer = async () => {
       conversations: [Conversation]
       conversationById(conversationId: String!): Conversation
       conversationsByUserId(userId: String!): [Conversation]
+    }
+
+    type RefreshToken {
+      id: ID!
+      userId: String!
+      token: String!
+      createdAt: Date!
+      createdByIp: String!
+      expiresAt: Date!
+      replacedByToken: String
+      revokedAt: Date!
+      revokedByIp: String
+      reasonRevoked: String
     }
 
     type User {
@@ -79,7 +100,7 @@ const startServer = async () => {
 
   const resolvers = {
     Mutation: {
-      createUser: async (
+      registerUser: async (
         obj: any,
         args: { username: string; password: string; passwordVerify: string; },
         context: any,
@@ -97,18 +118,48 @@ const startServer = async () => {
           data: {
             username,
             password,
-          }
+          },
         });
       },
-      createConversation: async (
+      loginUser: async (
         obj: any,
-        args: { name: string; authorId: string; memberIds: string[] },
+        args: { username: string; password: string; },
         context: any,
         info: any,
       ) => {
-        const { name, authorId, memberIds } = args;
+        const user = await getUserByUsername(args.username);
+        if (user === null) {
+          return;
+        }
 
-        // Create user
+        const accessToken = await createJwtToken(user.id);
+        const refreshToken = await createRefreshToken(user.id);
+        if (!accessToken || !refreshToken) {
+          return;
+        }
+
+        return accessToken;
+      },
+      createConversation: async (
+        obj: any,
+        args: { name: string; memberIds: string[] },
+        context: { user: User },
+        info: any,
+      ) => {
+        const { user } = context;
+        const { name, memberIds } = args;
+
+        // Not logged in? Throw error
+        if (!user) {
+          throw new GraphQLError("User is not authenticated", {
+            extensions: {
+              code: "UNAUTHENTICATED",
+              http: { status: 401 },
+            },
+          });
+        }
+
+        // Create conversation
         return prisma.conversation.create({
           include: {
             conversationUsers: true,
@@ -118,8 +169,8 @@ const startServer = async () => {
             conversationUsers: {
               createMany: {
                 data: [
-                  { userId: authorId, roleId: 'ADMIN' },
-                  ...memberIds.map((id) => ({ userId: id, roleId: 'MEMBER' }))
+                  { userId: user.id, roleId: "ADMIN" },
+                  ...memberIds.map((id) => ({ userId: id, roleId: "MEMBER" }))
                 ],
               }
             }
@@ -129,10 +180,21 @@ const startServer = async () => {
       createMessage: async (
         obj: any,
         args: { conversationId: string, authorId: string, text: string },
-        context: any,
+        context: { user: User },
         info: any,
       ) => {
+        const { user } = context;
         const { conversationId, authorId, text } = args;
+
+        // Not logged in? Throw error
+        if (!user) {
+          throw new GraphQLError("User is not authenticated", {
+            extensions: {
+              code: "UNAUTHENTICATED",
+              http: { status: 401 },
+            },
+          });
+        }
 
         // Create user
         return prisma.message.create({
@@ -168,6 +230,95 @@ const startServer = async () => {
       },
     },
   };
+
+  const createJwtToken = async (id: string, role: string = ""): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      jsonwebtoken.sign({
+        data: { id, role }
+      }, secret, { expiresIn: accessTokenExpiresIn }, (error, encoded) => {
+        // Error? throw
+        if (error) {
+          throw new GraphQLError(error.message, {
+            extensions: {
+              code: error.name,
+              http: { status: 401 },
+            },
+          });
+        }
+        if (encoded === undefined) {
+          reject();
+          return;
+        }
+        resolve(encoded);
+      });
+    });
+  };
+
+  const createRefreshToken = (id: string, role: string = ""): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      jsonwebtoken.sign({
+        data: { id, role }
+      }, secret, { expiresIn: accessTokenExpiresIn }, (error, encoded) => {
+        // Error? throw
+        if (error) {
+          throw new GraphQLError(error.message, {
+            extensions: {
+              code: error.name,
+              http: { status: 401 },
+            },
+          });
+        }
+        // ?????
+        if (encoded === undefined) {
+          reject();
+          return;
+        }
+        resolve(encoded);
+      });
+    });
+  };
+
+  const getUserByToken = async (token: string) => {
+    const userId: string | undefined = await new Promise((resolve) => {
+      // TODO: Here we should validate issuer and everything else
+      jsonwebtoken.verify(token, secret, (error, decoded) => {
+        // Error? throw
+        if (error) {
+          throw new GraphQLError(error.message, {
+            extensions: {
+              code: error.name,
+              http: { status: 401 },
+            },
+          });
+        }
+        // ?????
+        if (decoded === undefined) {
+          resolve(decoded);
+          return;
+        }
+        // ?????
+        if (typeof decoded === "string") {
+          resolve(decoded);
+          return;
+        }
+        // ?????
+        resolve(decoded.sub)
+      });
+    });
+    // Find user in db
+    const user = await prisma.user.findFirst({
+      where: { id: userId }
+    });    
+    return user;
+  };
+
+  const getUserByUsername = async (username: string) => {
+    // Find user in db
+    const user = await prisma.user.findFirst({
+      where: { username },
+    });    
+    return user;
+  };
   
   // Load configuration for Apollo
   const apolloServer = new ApolloServer<MyContext>({
@@ -175,13 +326,29 @@ const startServer = async () => {
     resolvers,
     plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
   });
+
   await apolloServer.start();
+  
   app.use(
     path,
-    cors<cors.CorsRequest>(),
+    cors<cors.CorsRequest>({
+      origin: ["*"],
+    }),
     json(),
     expressMiddleware(apolloServer, {
-      context: async ({ req }) => ({ token: req.headers.token }),
+      context: async ({ req, res }) => {
+        try { 
+          // Get the user token from the headers.
+          const authorizationHeader = req.headers.authorization || "";
+          const token = authorizationHeader.split("Bearer ")[0];          
+          // Try to retrieve a user with the token
+          const user = await getUserByToken(token[0]);
+          // Add the user to the context
+          return { user };
+        } catch {
+          return {};
+        }
+      },
     }),
   );
 

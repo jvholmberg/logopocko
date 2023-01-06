@@ -9,7 +9,6 @@
     "dev": "nodemon",
     "build": "rimraf ./build && tsc",
     "migrate": "npx prisma migrate dev",
-    "format": "npx prisma migrate dev",
     "studio": "npx prisma studio",
     "start": "npm run build && node build/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
